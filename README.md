@@ -1,3 +1,5 @@
+![example](./docs/example.png)
+
 # Installation
 1. `poetry install`
 2. Add your Redmine url and api key to your env. It can be done temporarily by doing:
