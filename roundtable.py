@@ -7,6 +7,7 @@ from collections import defaultdict
 from rich import print
 from rich.table import Table
 from rich.console import Console
+from rich.prompt import Prompt, Confirm
 
 app = typer.Typer()
 console = Console()
@@ -32,7 +33,7 @@ def tuesday():
     if today.weekday() == 1:
         return today
     day = 1 - today.weekday()
-    return today + timedelta(day)
+    return (today + timedelta(day)).date()
 
 
 @app.command()
@@ -93,6 +94,87 @@ def update():
                     )
             print(f'Link to issue: {REDMINE_URL}/issues/{issue.id}')    
 
+
+@app.command()
+def add():
+    """
+    Add new Redmine issues
+    """
+    while True:
+        new_issue = {}
+        print("\n[bold]Create new issue")
+
+        # title and description
+        new_issue['subject'] = Prompt.ask("Issue Subject")
+        
+        what = Prompt.ask("What is the task?")
+        why = Prompt.ask("Why are we doing this task?")
+
+        # dates
+        start = tuesday()
+        deadline = Prompt.ask('In how many weeks is this due?', default='1')
+
+        new_issue['due_date'] = timedelta(int(deadline) * 7 - 1) + start
+        new_issue['start_date'] = start
+
+        # parent task (topic)
+        topics = redmine.issue.filter(project_id=project.id, tracker_id=8)
+
+        table = Table(show_footer=False, title_justify="left")
+        table.add_column("Index")
+        table.add_column("Topic")
+        for index, issue in enumerate(topics):
+            table.add_row(str(index), issue.subject)
+        console.print(table)
+        topic_index = Prompt.ask("Select Parent Task", choices=[str(i) for i in range(len(topics))])
+
+        new_issue['parent_issue_id'] = topics[int(topic_index)].id
+
+        # assignee
+        members = project.memberships
+        table = Table(show_footer=False, title=f"[bold]Members", title_justify="left")
+        table.add_column("Index")
+        table.add_column("Name")
+        for index, user in enumerate(members):
+            table.add_row(str(index), user.user.name)
+        console.print(table)
+        member_index = Prompt.ask("Select Assignee", choices=[str(i) for i in range(len(members))])
+
+        new_issue['assigned_to_id'] = members[int(member_index)].user.id
+
+        # category
+        categories = project.issue_categories
+        table = Table(show_footer=False, title_justify="left")
+        table.add_column("Index")
+        table.add_column("Category")
+        for index, category in enumerate(categories):
+            table.add_row(str(index), category.name)
+        console.print(table)
+        category_index = Prompt.ask("Select Category", choices=[str(i) for i in range(len(categories))])
+        
+        new_issue['category_id'] = categories[int(category_index)].id
+
+        # misc
+        new_issue['description'] = f"Who: {members[int(member_index)].user.name}\nWhat: {what}\nWhy: {why}"        
+        new_issue['project_id'] = project.id
+        new_issue['tracker_id'] = 7  # Task
+        new_issue['status_id'] = 2  # In Progress
+        new_issue['priority_id'] = 2  # Normal
+        new_issue['done_ratio'] = 0  # 0%
+
+        # confirmation
+        print("[bold]Issue Summary:", new_issue)
+        confirm = Confirm.ask("Create this issue?")
+        if confirm:
+            try:
+                issue = redmine.issue.create(**new_issue)
+                print(f"Issue created: {REDMINE_URL}/issues/{issue.id}")
+            except Exception as e:
+                print(f"[red]Error creating issue: {e}")
+        loop = Confirm.ask("Add another issue?")
+        if not loop:
+            break  
+        
 
 if __name__ == "__main__":
     app()
