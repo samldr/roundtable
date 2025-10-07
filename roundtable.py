@@ -15,7 +15,7 @@ console = Console()
 def tuesday():
     today = datetime.now()
     if today.weekday() == 1:
-        return today
+        return today.date()
     day = 1 - today.weekday()
     return (today + timedelta(day)).date()
 
@@ -58,8 +58,26 @@ def update():
         assigned_to = getattr(issue, 'assigned_to', None)
         assigned_name = assigned_to.name if assigned_to else 'Unassigned'
         assigned_issues[assigned_name].append(issue)
+    
+    order = [
+        "Sam Leader",
+        "Matthew Foran",
+        "Deven Thaleshvar",
+        "Sandro Nevesinjac",
+        "Matthew Schweiger",
+        "Abel Gonzalez",
+        "Toryn Rice",
+        "Marie Metz",
+        "Adam Hillaby",
+        "Harris Oldring",
+        "Bibek Kahlon",
+        "Carson Mellow",
+        "Joey Zhao",
+        "Francesca Mison",
+    ]
+    sorted_users = sorted(assigned_issues.keys(), key=lambda x: order.index(x) if x in order else len(order))
 
-    for user in assigned_issues:
+    for user in sorted_users:
         if user == 'Unassigned':
             continue
         
@@ -82,8 +100,10 @@ def update():
                 redmine.issue.update(
                     issue.id,
                     status_id=5,
-                    done_ratio=100
+                    done_ratio=100,
+                    due_date=tuesday() - timedelta(1),
                 )
+                print(f'Completion Date: [bold white]{tuesday() - timedelta(1)}')
             else:
                 percent = Prompt.ask(f"Progress (currently {issue.done_ratio}%) [0-100]")
                 while not percent.isdigit() or not (0 <= int(percent) <= 100):
@@ -100,9 +120,10 @@ def update():
                 if delay:
                     redmine.issue.update(
                         issue.id,
-                        due_date=issue.due_date + timedelta(7)
+                        due_date= tuesday() + timedelta(6)
                     )
-            print(f'Link to issue: {REDMINE_URL}/issues/{issue.id}')    
+                    print(f'New due date: [bold white]{tuesday() + timedelta(6)}')
+            print(f'Link to issue: {REDMINE_URL}/issues/{issue.id}\n')    
 
 
 @app.command()
@@ -184,7 +205,6 @@ def new():
         loop = Confirm.ask("Add another issue?")
         if not loop:
             break  
-        
 
 if __name__ == "__main__":
     app()
